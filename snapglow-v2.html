@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SnapGlow v2 — Xnapper風スクリーンショット美化ツール</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0c0c0e; --bg2: #141416; --bg3: #1c1c1f; --bg4: #242428;
+  --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
+  --text: #ededf0; --text2: #8a8a98; --text3: #525260;
+  --accent: #6c5ce7; --accent2: #a29bfe;
+  --green: #00b894; --red: #e17055; --amber: #fdcb6e;
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 13px; overflow-x: hidden; }
+
+/* Header */
+header { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 200; background: rgba(12,12,14,0.92); backdrop-filter: blur(16px); }
+.logo { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.logo-mark { background: linear-gradient(135deg, var(--accent), var(--accent2)); width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.chip { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--border2); color: var(--text2); }
+
+/* Layout */
+.app { display: grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - 53px); }
+
+/* Sidebar */
+.sidebar { background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; padding: 14px 12px 40px; }
+.sec { font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--text3); margin: 16px 0 8px 4px; }
+.sec:first-child { margin-top: 4px; }
+.divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+/* Background grid */
+.bg-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 6px; }
+.bg-swatch { aspect-ratio: 1; border-radius: 7px; cursor: pointer; border: 2px solid transparent; transition: all .15s; }
+.bg-swatch:hover { transform: scale(1.08); }
+.bg-swatch.active { border-color: white; box-shadow: 0 0 0 1px var(--accent2); }
+
+/* Ratio presets */
+.ratio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.ratio-btn { padding: 7px 6px; background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; color: var(--text2); font-size: 11px; font-family: 'DM Mono', monospace; cursor: pointer; text-align: center; transition: all .15s; line-height: 1.3; }
+.ratio-btn:hover, .ratio-btn.active { background: var(--bg4); border-color: var(--accent); color: var(--accent2); }
+.ratio-btn small { display: block; font-size: 10px; color: var(--text3); }
+
+/* Sliders */
+.ctrl { display: flex; align-items: center; gap: 6px; padding: 5px 4px; }
+.ctrl-label { font-size: 11px; color: var(--text2); flex: 1; min-width: 0; }
+.ctrl-val { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--accent2); width: 28px; text-align: right; flex-shrink: 0; }
+input[type=range] { -webkit-appearance: none; flex-shrink: 0; width: 80px; height: 3px; background: var(--bg4); border-radius: 2px; outline: none; cursor: pointer; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--accent2); cursor: pointer; }
+
+/* Toggle */
+.tog-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 4px; }
+.tog-label { font-size: 11px; color: var(--text2); }
+.tog { position: relative; width: 32px; height: 18px; }
+.tog input { opacity: 0; width: 0; height: 0; }
+.tog-track { position: absolute; inset: 0; background: var(--bg4); border-radius: 9px; cursor: pointer; transition: background .2s; }
+.tog input:checked + .tog-track { background: var(--accent); }
+.tog-track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; background: white; border-radius: 50%; transition: transform .2s; }
+.tog input:checked + .tog-track::after { transform: translateX(14px); }
+
+/* Select */
+select { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 5px 8px; border-radius: 6px; font-family: inherit; font-size: 11px; outline: none; cursor: pointer; width: 100%; }
+select:focus { border-color: var(--accent); }
+
+/* Annotation tools */
+.tool-row { display: flex; gap: 5px; }
+.tool-btn { flex: 1; padding: 7px 4px; background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; color: var(--text2); font-size: 12px; cursor: pointer; text-align: center; transition: all .15s; }
+.tool-btn:hover { background: var(--bg4); color: var(--text); }
+.tool-btn.active { background: rgba(108,92,231,.2); border-color: var(--accent); color: var(--accent2); }
+
+/* Canvas area */
+.canvas-area { display: flex; flex-direction: column; align-items: center; padding: 28px 20px 60px; gap: 16px; overflow-y: auto; }
+
+/* Dropzone */
+.dropzone { width: 100%; max-width: 800px; min-height: 180px; border: 2px dashed var(--border2); border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; transition: all .2s; background: var(--bg2); padding: 24px; text-align: center; }
+.dropzone:hover, .dropzone.over { border-color: var(--accent); background: rgba(108,92,231,.06); }
+.drop-icon { font-size: 32px; }
+.drop-title { font-size: 15px; font-weight: 500; color: var(--text); }
+.drop-hint { font-size: 12px; color: var(--text3); }
+.drop-hint kbd { background: var(--bg3); border: 1px solid var(--border2); padding: 2px 6px; border-radius: 4px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text2); }
+#file-input { display: none; }
+
+/* Preview */
+.preview-wrap { width: 100%; max-width: 800px; display: none; }
+#canvas { width: 100%; border-radius: 10px; display: block; cursor: crosshair; }
+
+/* Action bar */
+.action-bar { display: flex; gap: 8px; align-items: center; width: 100%; max-width: 800px; flex-wrap: wrap; }
+.btn { padding: 9px 18px; border-radius: 7px; font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: #7c6cf7; transform: translateY(-1px); }
+.btn-secondary { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); }
+.btn-secondary:hover { background: var(--bg4); color: var(--text); }
+.btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text3); font-size: 11px; padding: 7px 12px; }
+.btn-ghost:hover { border-color: var(--border2); color: var(--text2); }
+.size-info { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); margin-left: auto; }
+
+/* Color picker row */
+.color-row { display: flex; gap: 4px; flex-wrap: wrap; padding: 2px 4px; }
+.cdot { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all .12s; flex-shrink: 0; }
+.cdot:hover { transform: scale(1.15); }
+.cdot.active { border-color: white; }
+
+/* Watermark input */
+input[type=text] { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 6px; font-family: inherit; font-size: 11px; outline: none; width: 100%; }
+input[type=text]:focus { border-color: var(--accent); }
+
+/* Tooltip */
+[title] { position: relative; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">✦</div>
+    SnapGlow
+  </div>
+  <div class="header-right">
+    <span class="chip">v2.0 β</span>
+    <span class="chip">無料</span>
+  </div>
+</header>
+
+<div class="app">
+<!-- ━━━ SIDEBAR ━━━ -->
+<aside class="sidebar">
+
+  <div class="sec">背景</div>
+  <div class="bg-grid" id="bg-grid"></div>
+  <div class="color-row" id="solid-dots"></div>
+
+  <div class="divider"></div>
+  <div class="sec">出力サイズ</div>
+  <div class="ratio-grid" id="ratio-grid">
+    <button class="ratio-btn active" data-r="free">フリー<small>制限なし</small></button>
+    <button class="ratio-btn" data-r="16:9">16:9<small>YouTube</small></button>
+    <button class="ratio-btn" data-r="1:1">1:1<small>Instagram</small></button>
+    <button class="ratio-btn" data-r="1200:628">OGP<small>SNSリンク</small></button>
+    <button class="ratio-btn" data-r="1600:900">HD<small>Twitter/X</small></button>
+    <button class="ratio-btn" data-r="800:418">note<small>アイキャッチ</small></button>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sec">スタイル</div>
+
+  <div class="ctrl">
+    <span class="ctrl-label">余白</span>
+    <input type="range" id="s-pad" min="0" max="140" value="56">
+    <span class="ctrl-val" id="v-pad">56</span>
+  </div>
+  <div class="ctrl">
+    <span class="ctrl-label">角丸</span>
+    <input type="range" id="s-rad" min="0" max="36" value="14">
+    <span class="ctrl-val" id="v-rad">14</span>
+  </div>
+  <div class="ctrl">
+    <span class="ctrl-label">影のぼかし</span>
+    <input type="range" id="s-sblur" min="0" max="100" value="48">
+    <span class="ctrl-val" id="v-sblur">48</span>
+  </div>
+  <div class="ctrl">
+    <span class="ctrl-label">影の濃さ</span>
+    <input type="range" id="s-salpha" min="0" max="100" value="55">
+    <span class="ctrl-val" id="v-salpha">55</span>
+  </div>
+  <div class="ctrl">
+    <span class="ctrl-label">影のY位置</span>
+    <input type="range" id="s-sy" min="0" max="60" value="16">
+    <span class="ctrl-val" id="v-sy">16</span>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sec">ウィンドウ枠</div>
+
+  <div class="tog-row">
+    <span class="tog-label">枠を表示</span>
+    <label class="tog"><input type="checkbox" id="t-bar" checked><div class="tog-track"></div></label>
+  </div>
+  <div style="padding:4px">
+    <select id="bar-style">
+      <option value="mac">macOS 風</option>
+      <option value="win">Windows 風</option>
+      <option value="plain">枠のみ（ボタンなし）</option>
+    </select>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sec">アノテーション</div>
+  <div class="tool-row">
+    <button class="tool-btn" id="tool-arrow" title="矢印を追加">↗ 矢印</button>
+    <button class="tool-btn" id="tool-text" title="テキストを追加">T テキスト</button>
+    <button class="tool-btn" id="tool-blur" title="ぼかし（個人情報隠し）">⊘ ぼかし</button>
+  </div>
+  <div style="margin-top:6px">
+    <button class="tool-btn" id="tool-undo" style="width:100%;font-size:11px">↩ 最後の操作を取り消す</button>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sec">ウォーターマーク</div>
+  <div class="tog-row">
+    <span class="tog-label">テキスト表示</span>
+    <label class="tog"><input type="checkbox" id="t-wm"><div class="tog-track"></div></label>
+  </div>
+  <div style="padding:4px">
+    <input type="text" id="wm-text" placeholder="例：@yourname" value="">
+  </div>
+
+  <div class="divider"></div>
+  <div class="sec">エクスポート倍率</div>
+  <div style="padding:4px">
+    <select id="exp-scale">
+      <option value="1">1× (標準)</option>
+      <option value="2" selected>2× (推奨)</option>
+      <option value="3">3× (高解像度)</option>
+    </select>
+  </div>
+
+</aside>
+
+<!-- ━━━ CANVAS ━━━ -->
+<main class="canvas-area">
+
+  <div class="dropzone" id="dropzone">
+    <div class="drop-icon">🖼</div>
+    <div class="drop-title">スクリーンショットをドロップ</div>
+    <div class="drop-hint">クリックで選択 · <kbd>Ctrl+V</kbd> で貼り付けも可 · PNG / JPG / WebP</div>
+  </div>
+  <input type="file" id="file-input" accept="image/*">
+
+  <div class="preview-wrap" id="preview-wrap">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div class="action-bar" id="action-bar" style="display:none">
+    <button class="btn btn-primary" id="btn-dl">⬇ PNG保存</button>
+    <button class="btn btn-secondary" id="btn-copy">📋 コピー</button>
+    <button class="btn btn-secondary" id="btn-balance">⊞ 自動バランス</button>
+    <button class="btn btn-ghost" id="btn-reset">✕ リセット</button>
+    <span class="size-info" id="size-info"></span>
+  </div>
+
+</main>
+</div>
+
+<script>
+// ━━━ State ━━━
+const S = {
+  img: null,
+  bg: { type:'gradient', idx:0 },
+  pad: 56, rad: 14, sblur: 48, salpha: 55, sy: 16,
+  bar: true, barStyle: 'mac',
+  ratio: 'free',
+  wm: false, wmText: '',
+  scale: 2,
+  annotations: [],   // {type, x,y,x2,y2,text,color}
+  activeTool: null,
+  drawing: false, drawStart: null,
+};
+
+// ━━━ Backgrounds ━━━
+const GRADS = [
+  {stops:['#0f0c29','#302b63','#24243e']},
+  {stops:['#f093fb','#f5576c']},
+  {stops:['#4facfe','#00f2fe']},
+  {stops:['#43e97b','#38f9d7']},
+  {stops:['#fa709a','#fee140']},
+  {stops:['#a18cd1','#fbc2eb']},
+  {stops:['#ffecd2','#fcb69f']},
+  {stops:['#96fbc4','#f9f586']},
+  {stops:['#667eea','#764ba2']},
+  {stops:['#0f2027','#203a43','#2c5364']},
+];
+const SOLIDS = ['#0c0c0e','#1a1a2e','#16213e','#ffffff','#f5f5f0','#fef9ef','#1e1e2e','#2d2d2d'];
+
+// Build swatches
+const bgGrid = document.getElementById('bg-grid');
+GRADS.forEach((g,i) => {
+  const el = document.createElement('div');
+  el.className = 'bg-swatch' + (i===0?' active':'');
+  el.style.background = `linear-gradient(135deg,${g.stops.join(',')})`;
+  el.onclick = () => {
+    document.querySelectorAll('.bg-swatch').forEach(s=>s.classList.remove('active'));
+    el.classList.add('active');
+    S.bg = {type:'gradient', idx:i};
+    render();
+  };
+  bgGrid.appendChild(el);
+});
+const solidRow = document.getElementById('solid-dots');
+SOLIDS.forEach(c => {
+  const d = document.createElement('div');
+  d.className = 'cdot';
+  d.style.background = c;
+  if(c==='#ffffff'||c.startsWith('#f')) d.style.border='2px solid rgba(255,255,255,.2)';
+  d.onclick = () => {
+    document.querySelectorAll('.bg-swatch,.cdot').forEach(s=>s.classList.remove('active'));
+    d.classList.add('active');
+    S.bg = {type:'solid', color:c};
+    render();
+  };
+  solidRow.appendChild(d);
+});
+
+// ━━━ Ratio presets ━━━
+const RATIOS = {
+  'free':null, '16:9':[16,9], '1:1':[1,1],
+  '1200:628':[1200,628], '1600:900':[1600,900], '800:418':[800,418],
+};
+document.querySelectorAll('.ratio-btn').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('.ratio-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    S.ratio = b.dataset.r;
+    render();
+  };
+});
+
+// ━━━ Controls ━━━
+function setupRange(id, valId, key, cb) {
+  const el = document.getElementById(id);
+  const vEl = document.getElementById(valId);
+  el.oninput = () => { S[key] = +el.value; vEl.textContent = el.value; render(); if(cb) cb(); };
+}
+setupRange('s-pad','v-pad','pad');
+setupRange('s-rad','v-rad','rad');
+setupRange('s-sblur','v-sblur','sblur');
+setupRange('s-salpha','v-salpha','salpha');
+setupRange('s-sy','v-sy','sy');
+
+document.getElementById('t-bar').onchange = e => { S.bar = e.target.checked; render(); };
+document.getElementById('bar-style').onchange = e => { S.barStyle = e.target.value; render(); };
+document.getElementById('t-wm').onchange = e => { S.wm = e.target.checked; render(); };
+document.getElementById('wm-text').oninput = e => { S.wmText = e.target.value; render(); };
+document.getElementById('exp-scale').onchange = e => { S.scale = +e.target.value; };
+
+// ━━━ File handling ━━━
+const dz = document.getElementById('dropzone');
+const fi = document.getElementById('file-input');
+dz.onclick = () => fi.click();
+dz.ondragover = e => { e.preventDefault(); dz.classList.add('over'); };
+dz.ondragleave = () => dz.classList.remove('over');
+dz.ondrop = e => { e.preventDefault(); dz.classList.remove('over'); loadFile(e.dataTransfer.files[0]); };
+fi.onchange = e => loadFile(e.target.files[0]);
+document.onpaste = e => {
+  const item = [...e.clipboardData.items].find(i=>i.type.startsWith('image/'));
+  if(item) loadFile(item.getAsFile());
+};
+
+function loadFile(file) {
+  if(!file || !file.type.startsWith('image/')) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      S.img = img; S.annotations = [];
+      dz.style.display = 'none';
+      document.getElementById('preview-wrap').style.display = 'block';
+      document.getElementById('action-bar').style.display = 'flex';
+      render();
+    };
+    img.src = ev.target.result;
+  };
+  r.readAsDataURL(file);
+}
+
+// ━━━ Canvas / Render ━━━
+const cv = document.getElementById('canvas');
+const ctx = cv.getContext('2d');
+
+function getRatio() {
+  if(S.ratio === 'free') return null;
+  return RATIOS[S.ratio];
+}
+
+function getCanvasSize(imgW, imgH, pad, barH) {
+  const ratio = getRatio();
+  let totalW = imgW + pad*2;
+  let totalH = imgH + pad*2 + barH;
+  if(ratio) {
+    const [rw, rh] = ratio;
+    const aspect = rw/rh;
+    const curAspect = totalW/totalH;
+    if(curAspect < aspect) totalW = Math.round(totalH * aspect);
+    else totalH = Math.round(totalW / aspect);
+  }
+  return [totalW, totalH];
+}
+
+function drawBg(ctx, w, h) {
+  if(S.bg.type === 'solid') {
+    ctx.fillStyle = S.bg.color;
+    ctx.fillRect(0,0,w,h);
+  } else {
+    const g = GRADS[S.bg.idx];
+    const grad = ctx.createLinearGradient(0,0,w,h);
+    g.stops.forEach((c,i) => grad.addColorStop(i/(g.stops.length-1), c));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,w,h);
+  }
+}
+
+function roundedRect(ctx, x, y, w, h, r) {
+  if(Array.isArray(r)) {
+    const [tl,tr,br,bl] = r;
+    ctx.beginPath();
+    ctx.moveTo(x+tl,y);
+    ctx.lineTo(x+w-tr,y); ctx.quadraticCurveTo(x+w,y,x+w,y+tr);
+    ctx.lineTo(x+w,y+h-br); ctx.quadraticCurveTo(x+w,y+h,x+w-br,y+h);
+    ctx.lineTo(x+bl,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-bl);
+    ctx.lineTo(x,y+tl); ctx.quadraticCurveTo(x,y,x+tl,y);
+    ctx.closePath();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath();
+  }
+}
+
+function drawTitlebar(ctx, x, y, w, style) {
+  const barH = 30;
+  roundedRect(ctx, x, y, w, barH, [S.rad, S.rad, 0, 0]);
+  ctx.fillStyle = 'rgba(28,28,32,0.95)';
+  ctx.fill();
+
+  if(style === 'mac') {
+    [['#ff5f57',0],['#febc2e',20],['#28c840',40]].forEach(([c,ox]) => {
+      ctx.beginPath(); ctx.arc(x+14+ox, y+barH/2, 5, 0, Math.PI*2);
+      ctx.fillStyle = c; ctx.fill();
+    });
+  } else if(style === 'win') {
+    ctx.fillStyle = '#c42b1c';
+    ctx.fillRect(x+w-46, y, 46, barH);
+    ctx.fillStyle = 'white'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('✕', x+w-23, y+barH/2+5);
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    ctx.fillRect(x+w-92, y, 46, barH);
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = '11px sans-serif';
+    ctx.fillText('□', x+w-69, y+barH/2+4);
+    ctx.fillRect(x+w-138, y, 46, barH);
+    ctx.fillStyle = 'rgba(255,255,255,.5)';
+    ctx.fillText('─', x+w-115, y+barH/2+2);
+  } else {
+    // plain bar
+    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    const dotW = 60; const dotX = x + w/2 - dotW/2;
+    ctx.beginPath(); ctx.arc(dotX+10, y+barH/2, 3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(dotX+30, y+barH/2, 3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(dotX+50, y+barH/2, 3, 0, Math.PI*2); ctx.fill();
+  }
+  return barH;
+}
+
+function drawAnnotations(ctx, imgX, imgY, imgW, imgH, scl) {
+  S.annotations.forEach(a => {
+    const ax = imgX + a.x * imgW;
+    const ay = imgY + a.y * imgH;
+    ctx.save();
+    if(a.type === 'arrow') {
+      const ax2 = imgX + a.x2 * imgW;
+      const ay2 = imgY + a.y2 * imgH;
+      ctx.strokeStyle = a.color || '#febc2e';
+      ctx.lineWidth = 2.5 * scl;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax2,ay2); ctx.stroke();
+      // arrowhead
+      const angle = Math.atan2(ay2-ay, ax2-ax);
+      const hl = 14 * scl;
+      ctx.beginPath();
+      ctx.moveTo(ax2, ay2);
+      ctx.lineTo(ax2 - hl*Math.cos(angle-0.4), ay2 - hl*Math.sin(angle-0.4));
+      ctx.lineTo(ax2 - hl*Math.cos(angle+0.4), ay2 - hl*Math.sin(angle+0.4));
+      ctx.closePath();
+      ctx.fillStyle = a.color || '#febc2e';
+      ctx.fill();
+    } else if(a.type === 'text') {
+      ctx.font = `${14*scl}px DM Sans, sans-serif`;
+      ctx.fillStyle = a.color || '#febc2e';
+      ctx.textBaseline = 'top';
+      const lines = (a.text||'テキスト').split('\n');
+      lines.forEach((line,i) => ctx.fillText(line, ax, ay + i*18*scl));
+    } else if(a.type === 'blur') {
+      const bx = imgX + a.x * imgW;
+      const by = imgY + a.y * imgH;
+      const bw = (a.x2 - a.x) * imgW;
+      const bh = (a.y2 - a.y) * imgH;
+      ctx.filter = 'blur(12px)';
+      ctx.drawImage(cv, bx, by, bw, bh, bx, by, bw, bh);
+      ctx.filter = 'none';
+      // Re-draw blurred region from original
+      ctx.filter = `blur(${14*scl}px)`;
+      ctx.drawImage(S.img,
+        a.x*S.img.naturalWidth, a.y*S.img.naturalHeight,
+        (a.x2-a.x)*S.img.naturalWidth, (a.y2-a.y)*S.img.naturalHeight,
+        bx, by, bw, bh);
+      ctx.filter = 'none';
+    }
+    ctx.restore();
+  });
+}
+
+function render() {
+  if(!S.img) return;
+  const scl = S.scale;
+  const barH = S.bar ? 30 : 0;
+  const imgW = S.img.naturalWidth;
+  const imgH = S.img.naturalHeight;
+  const [totalW, totalH] = getCanvasSize(imgW, imgH, S.pad, barH);
+
+  cv.width = totalW * scl;
+  cv.height = totalH * scl;
+  cv.style.maxWidth = '100%';
+
+  ctx.save();
+  ctx.scale(scl, scl);
+
+  // Background
+  drawBg(ctx, totalW, totalH);
+
+  // Centering
+  const imgX = Math.round((totalW - imgW) / 2);
+  const imgY = Math.round((totalH - imgH - barH) / 2) + barH;
+
+  // Shadow
+  ctx.shadowColor = `rgba(0,0,0,${S.salpha/100})`;
+  ctx.shadowBlur = S.sblur;
+  ctx.shadowOffsetY = S.sy;
+
+  // Draw container fill (with shadow)
+  const contY = imgY - barH;
+  roundedRect(ctx, imgX, contY, imgW, imgH+barH, S.rad);
+  ctx.fillStyle = '#1a1a1e';
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+
+  // Titlebar
+  if(S.bar) drawTitlebar(ctx, imgX, contY, imgW, S.barStyle);
+
+  // Image
+  ctx.save();
+  roundedRect(ctx, imgX, imgY, imgW, imgH, barH>0 ? [0,0,S.rad,S.rad] : S.rad);
+  ctx.clip();
+  ctx.drawImage(S.img, imgX, imgY, imgW, imgH);
+  ctx.restore();
+
+  // Annotations
+  drawAnnotations(ctx, imgX, imgY, imgW, imgH, scl);
+
+  // Watermark
+  if(S.wm && S.wmText) {
+    ctx.font = `${12}px DM Sans, sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(S.wmText, totalW - 10, totalH - 8);
+  }
+
+  ctx.restore();
+
+  document.getElementById('size-info').textContent = `${cv.width} × ${cv.height}px`;
+}
+
+// ━━━ Canvas interaction (annotations) ━━━
+let drawTool = null;
+let drawStart = null;
+
+function getRelPos(e) {
+  const rect = cv.getBoundingClientRect();
+  const scaleX = cv.width / rect.width / S.scale;
+  const scaleY = cv.height / rect.height / S.scale;
+  const imgW = S.img?.naturalWidth || 1;
+  const imgH = S.img?.naturalHeight || 1;
+  const [totalW, totalH] = getCanvasSize(imgW, imgH, S.pad, S.bar?30:0);
+  const imgX = Math.round((totalW - imgW) / 2);
+  const imgY = Math.round((totalH - imgH - (S.bar?30:0)) / 2) + (S.bar?30:0);
+
+  const px = (e.clientX - rect.left) * scaleX;
+  const py = (e.clientY - rect.top) * scaleY;
+  return [(px - imgX) / imgW, (py - imgY) / imgH];
+}
+
+cv.onmousedown = e => {
+  if(!drawTool || !S.img) return;
+  drawStart = getRelPos(e);
+  if(drawTool === 'text') {
+    const text = prompt('テキストを入力:');
+    if(text) {
+      S.annotations.push({type:'text', x:drawStart[0], y:drawStart[1], text, color:'#febc2e'});
+      render();
+    }
+    drawStart = null;
+  }
+};
+cv.onmouseup = e => {
+  if(!drawStart || !drawTool || drawTool === 'text') return;
+  const end = getRelPos(e);
+  if(Math.abs(end[0]-drawStart[0]) < 0.01 && Math.abs(end[1]-drawStart[1]) < 0.01) { drawStart=null; return; }
+  S.annotations.push({type:drawTool, x:drawStart[0], y:drawStart[1], x2:end[0], y2:end[1], color:'#febc2e'});
+  render();
+  drawStart = null;
+};
+
+// Tool buttons
+['arrow','text','blur'].forEach(t => {
+  document.getElementById('tool-'+t).onclick = () => {
+    if(drawTool === t) {
+      drawTool = null;
+      document.getElementById('tool-'+t).classList.remove('active');
+      cv.style.cursor = 'default';
+    } else {
+      drawTool = t;
+      document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+      document.getElementById('tool-'+t).classList.add('active');
+      cv.style.cursor = 'crosshair';
+    }
+  };
+});
+
+document.getElementById('tool-undo').onclick = () => {
+  S.annotations.pop();
+  render();
+};
+
+// ━━━ Auto-balance ━━━
+document.getElementById('btn-balance').onclick = () => {
+  // Reset pad to balanced value based on image size
+  const img = S.img;
+  if(!img) return;
+  const basepad = Math.round(Math.min(img.naturalWidth, img.naturalHeight) * 0.07);
+  S.pad = Math.max(32, Math.min(basepad, 100));
+  document.getElementById('s-pad').value = S.pad;
+  document.getElementById('v-pad').textContent = S.pad;
+  render();
+};
+
+// ━━━ Download / Copy / Reset ━━━
+document.getElementById('btn-dl').onclick = () => {
+  if(!S.img) return;
+  S.scale = +document.getElementById('exp-scale').value;
+  render();
+  const a = document.createElement('a');
+  a.download = `snapglow-${Date.now()}.png`;
+  a.href = cv.toDataURL('image/png');
+  a.click();
+};
+
+document.getElementById('btn-copy').onclick = async () => {
+  if(!S.img) return;
+  S.scale = +document.getElementById('exp-scale').value;
+  render();
+  cv.toBlob(async blob => {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+      const b = document.getElementById('btn-copy');
+      b.textContent = '✓ コピー完了';
+      setTimeout(()=>b.textContent='📋 コピー', 2000);
+    } catch { alert('コピー失敗。ダウンロードをお試しください。'); }
+  });
+};
+
+document.getElementById('btn-reset').onclick = () => {
+  S.img = null; S.annotations = [];
+  document.getElementById('dropzone').style.display = 'flex';
+  document.getElementById('preview-wrap').style.display = 'none';
+  document.getElementById('action-bar').style.display = 'none';
+  fi.value = '';
+};
+
+// Init first swatch active
+document.querySelector('.bg-swatch').classList.add('active');
+</script>
+</body>
+</html>
